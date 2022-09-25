@@ -3,5 +3,5 @@ import { htmlElementCreators } from "./creator.ts";
 
 Deno.test("htmlElementCreator", _ctx => {
 	const $div = htmlElementCreators.div();
-	assertEquals($div instanceof HTMLDivElement);
+	assertEquals($div instanceof HTMLDivElement, true);
 });

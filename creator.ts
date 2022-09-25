@@ -10,32 +10,41 @@ type Attributes = { [attrName: string]: string };
 type Children = (string | Node)[] | string | Node;
 type Events<Tgt extends HTMLElement> = { [eventName in keyof HTMLElementEventMap]?: ((event: TargetedHTMLElementEvent<Tgt>) => void) };
 
-type CreateHTMLElementArgs1<Elm extends HTMLElement> = [attributes: Attributes, children: Children, events?: Events<Elm>]
-type CreateHTMLElementArgs2<Elm extends HTMLElement> = [children: Children, events?: Events<Elm>]
+type HTMLElementCreatorArgs1<Elm extends HTMLElement> = [attributes: Attributes, children: Children, events?: Events<Elm>];
+type HTMLElementCreatorArgs2<Elm extends HTMLElement> = [children: Children, events?: Events<Elm>];
+type HTMLElementCreatorArgs<Elm extends HTMLElement> = [] | HTMLElementCreatorArgs1<Elm> | HTMLElementCreatorArgs2<Elm>;
 
-type CreateHTMLElementArgs<Elm extends HTMLElement> = [] | CreateHTMLElementArgs1<Elm> | CreateHTMLElementArgs2<Elm>;
+type HTMLElementCreator<E extends HTMLElement> = (...args: HTMLElementCreatorArgs<E>) => E;
 
 const htmlElementCreators: {
-	[tagName in keyof HTMLElementTagNameMap]: () => HTMLElementTagNameMap[tagName]
+	[tagName in keyof HTMLElementTagNameMap]: (...args: HTMLElementCreatorArgs<HTMLElementTagNameMap[tagName]>) => HTMLElementTagNameMap[tagName];
+} & {
+	custom<Elm extends HTMLElement>(customElementConstructor: { new(): Elm; tagName: string; }, ...args: HTMLElementCreatorArgs<Elm>): Elm;
 	// deno-lint-ignore no-explicit-any
-} = new Proxy({} as any, {
-	get(_target, name) {
+} = new Proxy({
+	custom<Elm extends HTMLElement>(customElementConstructor: { new(): Elm; tagName: string; }, ...args: HTMLElementCreatorArgs<HTMLElement>): Elm {
+		return hecorGenerator(customElementConstructor.tagName)(...args) as Elm;
+	}
+} as any, {
+	get(target, name) {
 		if (typeof name === "symbol")
-			return undefined;
+			return target[name];
+		if (name === "custom")
+			return target[name];
 		return hecorGenerator(name);
 	}
 });
 
 function hecorGenerator<TagName extends keyof HTMLElementTagNameMap>(tagName: TagName)
-	: (...args: CreateHTMLElementArgs<HTMLElementTagNameMap[TagName]>) => HTMLElementTagNameMap[TagName];
+	: (...args: HTMLElementCreatorArgs<HTMLElementTagNameMap[TagName]>) => HTMLElementTagNameMap[TagName];
 function hecorGenerator<TagName extends string>(tagName: TagName)
-	: (...args: CreateHTMLElementArgs<HTMLElement>) => HTMLElement;
+	: (...args: HTMLElementCreatorArgs<HTMLElement>) => HTMLElement;
 function hecorGenerator<TagName extends keyof HTMLElementTagNameMap>(tagName: TagName) {
 	type Elem = HTMLElementTagNameMap[TagName];
-	type Args = CreateHTMLElementArgs<Elem>
-	type Args2 = CreateHTMLElementArgs2<Elem>;
+	type Args = HTMLElementCreatorArgs<Elem>
+	type Args2 = HTMLElementCreatorArgs2<Elem>;
 	return function createHTMLElement(
-		...args: CreateHTMLElementArgs<Elem>
+		...args: HTMLElementCreatorArgs<Elem>
 	) {
 		const $elem: Elem = document.createElement(tagName);
 
